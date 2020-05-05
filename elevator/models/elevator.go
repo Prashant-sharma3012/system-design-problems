@@ -7,9 +7,12 @@ import (
 var currentID = 1 // can use iota here
 
 type Elevator struct {
-	id              int
-	currentPosition int
-	topFloor        int
+	Id              int
+	CurrentPosition int
+	TopFloor        int
+	GoingUp         bool
+	GoingDown       bool
+	InUse           bool
 }
 
 func (e *Elevator) GoTo(floor int) {
@@ -23,9 +26,12 @@ func GetElevator(topFloor int) (*Elevator, error) {
 	}
 
 	e := &Elevator{
-		id:              currentID,
-		currentPosition: 0,
-		topFloor:        topFloor,
+		Id:              currentID,
+		CurrentPosition: 0,
+		TopFloor:        topFloor,
+		GoingDown:       false,
+		GoingUp:         false,
+		InUse:           false,
 	}
 
 	currentID++

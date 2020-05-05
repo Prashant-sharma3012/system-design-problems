@@ -1,17 +1,19 @@
 package model
 
 type FloorSwitch struct {
-	Up   bool
-	Down bool
+	FloorNumber int
+	Up          bool
+	Down        bool
 }
 
 func GetSwitches(totalSwitches int) []*FloorSwitch {
 	var f []*FloorSwitch
 
-	for i := 0; i <= totalSwitches; i++ {
+	for i := 1; i <= totalSwitches; i++ {
 		f = append(f, &FloorSwitch{
-			Up:   false,
-			Down: false,
+			FloorNumber: i,
+			Up:          false,
+			Down:        false,
 		})
 	}
 
