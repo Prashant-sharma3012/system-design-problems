@@ -16,7 +16,11 @@ type Elevator struct {
 }
 
 func (e *Elevator) GoTo(floor int) {
-
+	if (e.GoingDown && floor < e.CurrentPosition) ||
+		(e.GoingUp && floor > e.CurrentPosition) {
+		e.CurrentPosition = floor
+		e.InUse = false
+	}
 }
 
 func GetElevator(topFloor int) (*Elevator, error) {
