@@ -173,14 +173,30 @@ func (c *Controller) RequestFromFloor(floor int, up bool, down bool) {
 
 // management
 
-func (c *Controller) OccupiedElevators() {
+func (c *Controller) OccupiedElevators() []*Elevator {
+	var occupied []*Elevator
 
+	for _, val := range c.Elevators {
+		if val.InUse {
+			occupied = append(occupied, val)
+		}
+	}
+
+	return occupied
 }
 
-func (c *Controller) UnOccupiedElevators() {
+func (c *Controller) UnOccupiedElevators() []*Elevator {
+	var unOccupied []*Elevator
 
+	for _, val := range c.Elevators {
+		if !val.InUse {
+			unOccupied = append(unOccupied, val)
+		}
+	}
+
+	return unOccupied
 }
 
-func (c *Controller) PendingRequests() {
-
+func (c *Controller) PendingRequests() []*Request {
+	return c.requestQ
 }
