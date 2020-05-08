@@ -4,6 +4,8 @@ type FloorSwitch struct {
 	FloorNumber int
 	Up          bool
 	Down        bool
+	requestUp   int
+	requestDown int
 }
 
 func GetSwitches(totalSwitches int) []*FloorSwitch {
