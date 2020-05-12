@@ -30,20 +30,6 @@ func (c *Controller) init() {
 }
 
 // helper fucntions
-func setDirection(val *Elevator, up bool, down bool) {
-	if up {
-		fmt.Println("Going Up")
-		val.GoingUp = true
-		val.InUse = true
-	}
-
-	if down {
-		fmt.Println("Going Down")
-		val.GoingDown = true
-		val.InUse = true
-	}
-}
-
 func resetSwitch(c *Controller, atFloor int, up bool, down bool) {
 
 	if up {
@@ -87,6 +73,37 @@ func GetController(numOfLifts int, topFloor int) (*Controller, error) {
 	return controller, nil
 }
 
+func updateElevator(val *Elevator, up bool, down bool, atFloor int) bool {
+
+	val.Lock()
+	defer val.Unlock()
+
+	if val.InUse {
+		return false
+	}
+
+	val.PickFromFloor = append(val.PickFromFloor, atFloor)
+
+	if up {
+		val.GoingUp = true
+		val.InUse = true
+		val.StopAtFloor = append(val.StopAtFloor, 15)
+	} else {
+		val.GoingDown = true
+		val.InUse = true
+		val.StopAtFloor = append(val.StopAtFloor, 1)
+	}
+
+	return true
+}
+
+func log(floor, id, pos int) {
+	fmt.Printf("Servicing Request for floor %d , Using Lift %d at Floor %d \n",
+		floor,
+		id,
+		pos)
+}
+
 func (c *Controller) Call(atFloor int, up bool, down bool, wg *sync.WaitGroup) {
 	var callFrom = -1
 	var minDiff, tempMinDiff int
@@ -99,23 +116,12 @@ func (c *Controller) Call(atFloor int, up bool, down bool, wg *sync.WaitGroup) {
 		for indx, val := range c.Elevators {
 			if !val.InUse {
 				if val.CurrentPosition == atFloor {
-					fmt.Printf("SAME FLOOR: Servicing Request for floor %d , Using Lift %d at Floor %d ",
-						atFloor,
-						val.Id,
-						val.CurrentPosition)
-
-					val.InUse = true
-					setDirection(val, up, down)
-					resetSwitch(c, atFloor, up, down)
-					val.PickFromFloor = append(val.PickFromFloor, atFloor)
-					if up {
-						val.StopAtFloor = append(val.StopAtFloor, 15)
-					} else {
-						val.StopAtFloor = append(val.StopAtFloor, 1)
+					if updateElevator(val, up, down, atFloor) {
+						log(atFloor, val.Id, val.CurrentPosition)
+						resetSwitch(c, atFloor, up, down)
+						val.ServeReqs(wg, &m)
+						return
 					}
-
-					val.ServeReqs(wg, &m)
-					return
 				}
 
 				tempMinDiff = val.CurrentPosition - atFloor
@@ -127,58 +133,43 @@ func (c *Controller) Call(atFloor int, up bool, down bool, wg *sync.WaitGroup) {
 					minDiff = tempMinDiff
 					callFrom = indx
 				}
+
 			} else {
 				if val.GoingUp && val.CurrentPosition < (atFloor-2) {
-
+					val.Lock()
 					val.PickFromFloor = append(val.PickFromFloor, atFloor)
 					sort.Slice(val.PickFromFloor, func(i, j int) bool { return val.PickFromFloor[i] < val.PickFromFloor[j] })
+					val.Unlock()
+
 					resetSwitch(c, atFloor, up, down)
-
-					fmt.Printf("Servicing Request for floor %d , Using Lift %d that is already in use and is at Floor %d ",
-						atFloor,
-						val.Id,
-						val.CurrentPosition)
-
+					fmt.Printf("Using Elevator %d already servicing \n", val.Id)
+					log(atFloor, val.Id, val.CurrentPosition)
 					return
 				}
 
 				if val.GoingDown && val.CurrentPosition > (atFloor+2) {
-
+					val.Lock()
 					val.PickFromFloor = append(val.PickFromFloor, atFloor)
 					sort.Slice(val.PickFromFloor, func(i, j int) bool { return val.PickFromFloor[i] > val.PickFromFloor[j] })
+					val.Unlock()
+
 					resetSwitch(c, atFloor, up, down)
-
-					fmt.Printf("Servicing Request for floor %d , Using Lift %d that is already in use and is at Floor %d ",
-						atFloor,
-						val.Id,
-						val.CurrentPosition)
-
+					fmt.Printf("Using Elevator %d already servicing \n", val.Id)
+					log(atFloor, val.Id, val.CurrentPosition)
 					return
 				}
 			}
 		}
 	}
 
-	fmt.Printf("DIFF FLOOR:  Servicing Request for floor %d , Using Lift %d at Floor %d ",
-		atFloor,
-		c.Elevators[callFrom].Id,
-		c.Elevators[callFrom].CurrentPosition)
-
-	m.Lock()
-	c.Elevators[callFrom].InUse = true
-	setDirection(c.Elevators[callFrom], up, down)
-	resetSwitch(c, atFloor, up, down)
-	c.Elevators[callFrom].PickFromFloor = append(c.Elevators[callFrom].PickFromFloor, atFloor)
-
-	if up {
-		c.Elevators[callFrom].StopAtFloor = append(c.Elevators[callFrom].StopAtFloor, 15)
+	if updateElevator(c.Elevators[callFrom], up, down, atFloor) {
+		log(atFloor, c.Elevators[callFrom].Id, c.Elevators[callFrom].CurrentPosition)
+		resetSwitch(c, atFloor, up, down)
+		c.Elevators[callFrom].ServeReqs(wg, &m)
+		return
 	} else {
-		c.Elevators[callFrom].StopAtFloor = append(c.Elevators[callFrom].StopAtFloor, 1)
+		c.Call(atFloor, up, down, wg)
 	}
-	m.Unlock()
-
-	c.Elevators[callFrom].ServeReqs(wg, &m)
-	return
 }
 
 func (c *Controller) StartServicing(wg *sync.WaitGroup) {

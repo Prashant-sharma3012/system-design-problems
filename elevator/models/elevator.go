@@ -10,6 +10,7 @@ import (
 var currentID = 1 // can use iota here
 
 type Elevator struct {
+	sync.Mutex
 	Id              int
 	CurrentPosition int
 	TopFloor        int
@@ -26,7 +27,7 @@ func (e *Elevator) ServeReqs(wg *sync.WaitGroup, m *sync.Mutex) {
 	for len(e.PickFromFloor) > 0 || len(e.StopAtFloor) > 0 {
 		time.Sleep(999999999)
 
-		m.Lock()
+		e.Lock()
 		if e.GoingDown {
 			e.CurrentPosition--
 		} else {
@@ -47,15 +48,15 @@ func (e *Elevator) ServeReqs(wg *sync.WaitGroup, m *sync.Mutex) {
 			fmt.Printf("Stopping at floor %d to drop ", e.CurrentPosition)
 			e.StopAtFloor = e.StopAtFloor[1:]
 		}
-		m.Unlock()
+		e.Unlock()
 	}
 
-	m.Lock()
+	e.Lock()
 	e.CurrentPosition = finalPosition
 	e.InUse = false
 	e.GoingDown = false
 	e.GoingDown = false
-	m.Unlock()
+	e.Unlock()
 }
 
 func GetElevator(topFloor int) (*Elevator, error) {
