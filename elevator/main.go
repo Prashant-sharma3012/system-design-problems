@@ -19,10 +19,12 @@ func main() {
 
 	fmt.Println("Creating Requests")
 
-	for i := 2; i < 10; i++ {
-		controller.RequestFromFloor(10-i, false, true)
-		controller.RequestFromFloor(i, true, false)
-	}
+	controller.RequestFromFloor(10, false, true)
+	controller.RequestFromFloor(2, true, false)
+	controller.RequestFromFloor(8, false, true)
+	controller.RequestFromFloor(6, true, false)
+	controller.RequestFromFloor(5, false, true)
+	controller.RequestFromFloor(12, true, false)
 
 	fmt.Println("Scanning For reqs")
 

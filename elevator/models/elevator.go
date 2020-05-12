@@ -24,8 +24,8 @@ type Elevator struct {
 func (e *Elevator) ServeReqs(wg *sync.WaitGroup, m *sync.Mutex) {
 	finalPosition := 0
 
-	for len(e.PickFromFloor) > 0 || len(e.StopAtFloor) > 0 {
-		time.Sleep(999999999)
+	for len(e.StopAtFloor) > 0 {
+		time.Sleep(99999999)
 
 		e.Lock()
 		if e.GoingDown {
@@ -38,15 +38,28 @@ func (e *Elevator) ServeReqs(wg *sync.WaitGroup, m *sync.Mutex) {
 			finalPosition = e.StopAtFloor[0]
 		}
 
-		if e.CurrentPosition == e.PickFromFloor[0] {
-			fmt.Printf("Stopping at floor %d to pickup ", e.CurrentPosition)
-			e.PickFromFloor = e.PickFromFloor[1:]
+		if len(e.PickFromFloor) > 0 && e.CurrentPosition == e.PickFromFloor[0] {
+			fmt.Printf("Stopping elevator %d at floor %d to pickup \n", e.Id, e.CurrentPosition)
+			if len(e.PickFromFloor) > 1 {
+				e.PickFromFloor = e.PickFromFloor[1:]
+			}
+
+			if len(e.PickFromFloor) == 1 {
+				e.PickFromFloor = []int{}
+			}
+
 			wg.Done()
 		}
 
-		if e.CurrentPosition == e.StopAtFloor[0] {
-			fmt.Printf("Stopping at floor %d to drop ", e.CurrentPosition)
-			e.StopAtFloor = e.StopAtFloor[1:]
+		if len(e.StopAtFloor) > 0 && e.CurrentPosition == e.StopAtFloor[0] {
+			fmt.Printf("Stopping elevator %d at floor %d to drop \n", e.Id, e.CurrentPosition)
+			if len(e.StopAtFloor) > 1 {
+				e.StopAtFloor = e.StopAtFloor[1:]
+			}
+
+			if len(e.StopAtFloor) == 1 {
+				e.StopAtFloor = []int{}
+			}
 		}
 		e.Unlock()
 	}
