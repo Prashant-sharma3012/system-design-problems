@@ -2,7 +2,6 @@ package model
 
 import (
 	"errors"
-	"fmt"
 	"time"
 )
 
@@ -18,17 +17,30 @@ type Elevator struct {
 }
 
 func (e *Elevator) GoTo(floor int) {
-	time.Sleep(100)
-	fmt.Println("Going to")
-	fmt.Println(floor)
 
-	if (e.GoingDown && floor < e.CurrentPosition) ||
-		(e.GoingUp && floor > e.CurrentPosition) {
+	if (e.GoingDown && floor <= e.CurrentPosition) ||
+		(e.GoingUp && floor >= e.CurrentPosition) {
+
+		diff := floor - e.CurrentPosition
+
+		if diff < 0 {
+			diff = diff * -1
+		}
+
+		for i := 1; i <= diff; i++ {
+			time.Sleep(99999)
+			if e.GoingDown {
+				e.CurrentPosition--
+			} else {
+				e.CurrentPosition++
+			}
+		}
+
 		e.CurrentPosition = floor
 		e.InUse = false
+		e.GoingDown = false
+		e.GoingDown = false
 	}
-	e.CurrentPosition = floor
-	e.InUse = false
 }
 
 func GetElevator(topFloor int) (*Elevator, error) {
@@ -39,7 +51,7 @@ func GetElevator(topFloor int) (*Elevator, error) {
 
 	e := &Elevator{
 		Id:              currentID,
-		CurrentPosition: 0,
+		CurrentPosition: 1,
 		TopFloor:        topFloor,
 		GoingDown:       false,
 		GoingUp:         false,

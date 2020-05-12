@@ -17,7 +17,12 @@ type Controller struct {
 	TotalElevators int
 	FloorSwitches  []*FloorSwitch
 	start          bool
-	requestQ       []*Request
+	requestQ       chan *Request
+}
+
+func (c *Controller) init() {
+	// if there are total 20 floors wach floor can make 2 requests
+	c.requestQ = make(chan *Request, len(c.FloorSwitches)*2)
 }
 
 // helper fucntions
@@ -55,27 +60,6 @@ func createRequest(floor int, up bool, down bool, requestId int) *Request {
 	}
 }
 
-func removeRequest(c *Controller, reqId int) {
-	posToRemove := -1
-
-	for indx, val := range c.requestQ {
-		if val.Id == reqId {
-			posToRemove = indx
-		}
-	}
-
-	if posToRemove == -1 {
-		// something is wrong
-		fmt.Println("##################################")
-		fmt.Println("req id Not in queue")
-		fmt.Println(reqId)
-		fmt.Println("##################################")
-		return
-	}
-
-	c.requestQ = append(c.requestQ[:posToRemove], c.requestQ[posToRemove+1:]...)
-}
-
 func GetController(numOfLifts int, topFloor int) (*Controller, error) {
 
 	if numOfLifts == 0 || topFloor == 0 {
@@ -85,7 +69,7 @@ func GetController(numOfLifts int, topFloor int) (*Controller, error) {
 	var elevators []*Elevator
 	var elevator *Elevator
 
-	for i := 0; i <= numOfLifts; i++ {
+	for i := 1; i <= numOfLifts; i++ {
 		elevator, _ = GetElevator(topFloor)
 		elevators = append(elevators, elevator)
 	}
@@ -115,6 +99,8 @@ func (c *Controller) Call(atFloor int, up bool, down bool) *Elevator {
 				if val.CurrentPosition == atFloor {
 					fmt.Println("Servicing Request for floor")
 					fmt.Println(atFloor)
+					fmt.Println("Using Lift")
+					fmt.Println(val.Id)
 					val.InUse = true
 					setDirection(val, up, down)
 					return val
@@ -127,20 +113,18 @@ func (c *Controller) Call(atFloor int, up bool, down bool) *Elevator {
 
 				if tempMinDiff < minDiff {
 					minDiff = tempMinDiff
-					callFrom = indx + 1
+					callFrom = indx
 				}
 			}
-		}
-
-		if callFrom == -1 {
-			fmt.Println("All Elevators are busy")
 		}
 	}
 
 	fmt.Println("Servicing Request for floor")
 	fmt.Println(atFloor)
 	fmt.Println("from")
-	fmt.Println(callFrom)
+	fmt.Println(c.Elevators[callFrom].CurrentPosition)
+	fmt.Println("Using Lift")
+	fmt.Println(c.Elevators[callFrom].Id)
 
 	c.Elevators[callFrom].InUse = true
 	setDirection(c.Elevators[callFrom], up, down)
@@ -148,31 +132,16 @@ func (c *Controller) Call(atFloor int, up bool, down bool) *Elevator {
 	// set the switch to off again
 	resetSwitch(c, atFloor, up, down)
 
-	var reqId int
-
-	if up {
-		reqId = c.FloorSwitches[atFloor].requestUp
-	} else {
-		reqId = c.FloorSwitches[atFloor].requestDown
-	}
-
-	removeRequest(c, reqId)
-
 	return c.Elevators[callFrom]
 }
 
 func (c *Controller) StartServicing() {
 	c.start = true
+	c.init()
 
 	for c.start {
-		for _, val := range c.FloorSwitches {
-			if val.Up {
-				c.Call(val.FloorNumber, true, false).GoTo(0)
-			}
-
-			if val.Down {
-				c.Call(val.FloorNumber, false, true).GoTo(20)
-			}
+		for req := range c.requestQ {
+			go c.Call(req.Floor, req.GoingUp, req.GoingDown).GoTo(req.Floor)
 		}
 	}
 }
@@ -186,7 +155,6 @@ func (c *Controller) RequestFromFloor(floor int, up bool, down bool) {
 
 	currentReq := len(c.requestQ)
 	req := createRequest(floor, up, down, currentReq)
-	c.requestQ = append(c.requestQ, req)
 
 	if up {
 		c.FloorSwitches[floor-1].requestUp = currentReq
@@ -198,6 +166,7 @@ func (c *Controller) RequestFromFloor(floor int, up bool, down bool) {
 		c.FloorSwitches[floor-1].GoDown()
 	}
 
+	c.requestQ <- req
 }
 
 // management
@@ -226,14 +195,6 @@ func (c *Controller) UnOccupiedElevators() []*Elevator {
 	return unOccupied
 }
 
-func (c *Controller) PendingRequests() []*Request {
-	return c.requestQ
-}
-
-func (c *Controller) HasPendingRequests() bool {
-	if len(c.requestQ) > 0 {
-		return true
-	}
-
-	return false
+func (c *Controller) PendingRequests() int {
+	return len(c.requestQ)
 }

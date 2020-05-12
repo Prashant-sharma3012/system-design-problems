@@ -22,9 +22,9 @@ func main() {
 	}
 
 	fmt.Println("Scanning For reqs")
-	for controller.HasPendingRequests() {
-		time.Sleep(10)
-		fmt.Println("Servicing...")
-	}
 
+	for controller.PendingRequests() > 0 {
+		time.Sleep(9999999999)
+		fmt.Println("Scanning For reqs")
+	}
 }
