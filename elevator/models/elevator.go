@@ -2,6 +2,8 @@ package model
 
 import (
 	"errors"
+	"fmt"
+	"sync"
 	"time"
 )
 
@@ -14,33 +16,46 @@ type Elevator struct {
 	GoingUp         bool
 	GoingDown       bool
 	InUse           bool
+	PickFromFloor   []int
+	StopAtFloor     []int
 }
 
-func (e *Elevator) GoTo(floor int) {
+func (e *Elevator) ServeReqs(wg *sync.WaitGroup, m *sync.Mutex) {
+	finalPosition := 0
 
-	if (e.GoingDown && floor <= e.CurrentPosition) ||
-		(e.GoingUp && floor >= e.CurrentPosition) {
+	for len(e.PickFromFloor) > 0 || len(e.StopAtFloor) > 0 {
+		time.Sleep(999999999)
 
-		diff := floor - e.CurrentPosition
-
-		if diff < 0 {
-			diff = diff * -1
+		m.Lock()
+		if e.GoingDown {
+			e.CurrentPosition--
+		} else {
+			e.CurrentPosition++
 		}
 
-		for i := 1; i <= diff; i++ {
-			time.Sleep(99999)
-			if e.GoingDown {
-				e.CurrentPosition--
-			} else {
-				e.CurrentPosition++
-			}
+		if len(e.StopAtFloor) == 1 {
+			finalPosition = e.StopAtFloor[0]
 		}
 
-		e.CurrentPosition = floor
-		e.InUse = false
-		e.GoingDown = false
-		e.GoingDown = false
+		if e.CurrentPosition == e.PickFromFloor[0] {
+			fmt.Printf("Stopping at floor %d to pickup ", e.CurrentPosition)
+			e.PickFromFloor = e.PickFromFloor[1:]
+			wg.Done()
+		}
+
+		if e.CurrentPosition == e.StopAtFloor[0] {
+			fmt.Printf("Stopping at floor %d to drop ", e.CurrentPosition)
+			e.StopAtFloor = e.StopAtFloor[1:]
+		}
+		m.Unlock()
 	}
+
+	m.Lock()
+	e.CurrentPosition = finalPosition
+	e.InUse = false
+	e.GoingDown = false
+	e.GoingDown = false
+	m.Unlock()
 }
 
 func GetElevator(topFloor int) (*Elevator, error) {

@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"time"
+	"sync"
 
 	model "github.com/system-design-problems/elevator/models"
 )
@@ -10,23 +10,23 @@ import (
 func main() {
 	// Do a dry run of things justtosee if everything is working
 
+	var wg sync.WaitGroup
+
 	controller, _ := model.GetController(2, 20)
 
 	fmt.Println("Starting Service")
-	go controller.StartServicing()
+	go controller.StartServicing(&wg)
 
-	fmt.Println("Request 10 Elevators")
+	fmt.Println("Creating Requests")
 
 	for i := 2; i < 10; i++ {
-		go controller.RequestFromFloor(i, true, false)
+		controller.RequestFromFloor(10-i, false, true)
+		controller.RequestFromFloor(i, true, false)
 	}
 
 	fmt.Println("Scanning For reqs")
 
-	for controller.PendingRequests() > 0 {
-		time.Sleep(9999999999)
-		fmt.Println("Scanning For reqs")
-	}
+	wg.Wait()
 
 	fmt.Println("No More requests, Bye")
 }

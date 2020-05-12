@@ -3,6 +3,8 @@ package model
 import (
 	"errors"
 	"fmt"
+	"sort"
+	"sync"
 )
 
 type Request struct {
@@ -19,6 +21,8 @@ type Controller struct {
 	start          bool
 	requestQ       chan *Request
 }
+
+var m sync.Mutex
 
 func (c *Controller) init() {
 	// if there are total 20 floors wach floor can make 2 requests
@@ -83,8 +87,7 @@ func GetController(numOfLifts int, topFloor int) (*Controller, error) {
 	return controller, nil
 }
 
-func (c *Controller) Call(atFloor int, up bool, down bool) *Elevator {
-
+func (c *Controller) Call(atFloor int, up bool, down bool, wg *sync.WaitGroup) {
 	var callFrom = -1
 	var minDiff, tempMinDiff int
 
@@ -94,17 +97,25 @@ func (c *Controller) Call(atFloor int, up bool, down bool) *Elevator {
 	for callFrom == -1 {
 		// check if there is a lift already at this floor
 		for indx, val := range c.Elevators {
-
 			if !val.InUse {
 				if val.CurrentPosition == atFloor {
-					fmt.Printf("Servicing Request for floor %d , Using Lift %d at Floor %d ",
+					fmt.Printf("SAME FLOOR: Servicing Request for floor %d , Using Lift %d at Floor %d ",
 						atFloor,
 						val.Id,
 						val.CurrentPosition)
 
 					val.InUse = true
 					setDirection(val, up, down)
-					return val
+					resetSwitch(c, atFloor, up, down)
+					val.PickFromFloor = append(val.PickFromFloor, atFloor)
+					if up {
+						val.StopAtFloor = append(val.StopAtFloor, 15)
+					} else {
+						val.StopAtFloor = append(val.StopAtFloor, 1)
+					}
+
+					val.ServeReqs(wg, &m)
+					return
 				}
 
 				tempMinDiff = val.CurrentPosition - atFloor
@@ -116,31 +127,68 @@ func (c *Controller) Call(atFloor int, up bool, down bool) *Elevator {
 					minDiff = tempMinDiff
 					callFrom = indx
 				}
+			} else {
+				if val.GoingUp && val.CurrentPosition < (atFloor-2) {
+
+					val.PickFromFloor = append(val.PickFromFloor, atFloor)
+					sort.Slice(val.PickFromFloor, func(i, j int) bool { return val.PickFromFloor[i] < val.PickFromFloor[j] })
+					resetSwitch(c, atFloor, up, down)
+
+					fmt.Printf("Servicing Request for floor %d , Using Lift %d that is already in use and is at Floor %d ",
+						atFloor,
+						val.Id,
+						val.CurrentPosition)
+
+					return
+				}
+
+				if val.GoingDown && val.CurrentPosition > (atFloor+2) {
+
+					val.PickFromFloor = append(val.PickFromFloor, atFloor)
+					sort.Slice(val.PickFromFloor, func(i, j int) bool { return val.PickFromFloor[i] > val.PickFromFloor[j] })
+					resetSwitch(c, atFloor, up, down)
+
+					fmt.Printf("Servicing Request for floor %d , Using Lift %d that is already in use and is at Floor %d ",
+						atFloor,
+						val.Id,
+						val.CurrentPosition)
+
+					return
+				}
 			}
 		}
 	}
 
-	fmt.Printf("Servicing Request for floor %d , Using Lift %d at Floor %d ",
+	fmt.Printf("DIFF FLOOR:  Servicing Request for floor %d , Using Lift %d at Floor %d ",
 		atFloor,
 		c.Elevators[callFrom].Id,
 		c.Elevators[callFrom].CurrentPosition)
 
+	m.Lock()
 	c.Elevators[callFrom].InUse = true
 	setDirection(c.Elevators[callFrom], up, down)
-
-	// set the switch to off again
 	resetSwitch(c, atFloor, up, down)
+	c.Elevators[callFrom].PickFromFloor = append(c.Elevators[callFrom].PickFromFloor, atFloor)
 
-	return c.Elevators[callFrom]
+	if up {
+		c.Elevators[callFrom].StopAtFloor = append(c.Elevators[callFrom].StopAtFloor, 15)
+	} else {
+		c.Elevators[callFrom].StopAtFloor = append(c.Elevators[callFrom].StopAtFloor, 1)
+	}
+	m.Unlock()
+
+	c.Elevators[callFrom].ServeReqs(wg, &m)
+	return
 }
 
-func (c *Controller) StartServicing() {
+func (c *Controller) StartServicing(wg *sync.WaitGroup) {
 	c.start = true
 	c.init()
 
 	for c.start {
 		for req := range c.requestQ {
-			go c.Call(req.Floor, req.GoingUp, req.GoingDown).GoTo(req.Floor)
+			wg.Add(1)
+			go c.Call(req.Floor, req.GoingUp, req.GoingDown, wg)
 		}
 	}
 }
