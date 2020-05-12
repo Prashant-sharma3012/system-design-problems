@@ -27,4 +27,6 @@ func main() {
 		time.Sleep(9999999999)
 		fmt.Println("Scanning For reqs")
 	}
+
+	fmt.Println("No More requests, Bye")
 }

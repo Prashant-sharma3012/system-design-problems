@@ -97,10 +97,11 @@ func (c *Controller) Call(atFloor int, up bool, down bool) *Elevator {
 
 			if !val.InUse {
 				if val.CurrentPosition == atFloor {
-					fmt.Println("Servicing Request for floor")
-					fmt.Println(atFloor)
-					fmt.Println("Using Lift")
-					fmt.Println(val.Id)
+					fmt.Printf("Servicing Request for floor %d , Using Lift %d at Floor %d ",
+						atFloor,
+						val.Id,
+						val.CurrentPosition)
+
 					val.InUse = true
 					setDirection(val, up, down)
 					return val
@@ -119,12 +120,10 @@ func (c *Controller) Call(atFloor int, up bool, down bool) *Elevator {
 		}
 	}
 
-	fmt.Println("Servicing Request for floor")
-	fmt.Println(atFloor)
-	fmt.Println("from")
-	fmt.Println(c.Elevators[callFrom].CurrentPosition)
-	fmt.Println("Using Lift")
-	fmt.Println(c.Elevators[callFrom].Id)
+	fmt.Printf("Servicing Request for floor %d , Using Lift %d at Floor %d ",
+		atFloor,
+		c.Elevators[callFrom].Id,
+		c.Elevators[callFrom].CurrentPosition)
 
 	c.Elevators[callFrom].InUse = true
 	setDirection(c.Elevators[callFrom], up, down)
